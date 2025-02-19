@@ -47,6 +47,7 @@ public class OrderController {
                                           @RequestParam(required = false) String soi,
                                           @RequestParam(required = false) String moo,
                                           @RequestParam("receiptImage") MultipartFile receiptImage) {
+        
         try {
             List<CartItem> cartItems = cartService.getCartItems(email); // Retrieve cart items
             double totalAmount = cartItems.stream()
@@ -87,19 +88,19 @@ public class OrderController {
                 order.getOrderItems().add(orderItem); // Add to the order items list
             }
 
-            // Call service to save order and deduct stock
+            // Call service to save order
             orderService.createOrder(order, email); // Pass email instead of username
             cartService.clearCart(email); // Clear the cart after order is created
             return ResponseEntity.ok().build();
-
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                                  .body("Failed to save the receipt image: " + e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                                 .body("Failed to create order: " + e.getMessage());
         }
     }
-
 
     @GetMapping("/{orderId}")
     public ResponseEntity<Order> getOrderDetails(@PathVariable Long orderId) {

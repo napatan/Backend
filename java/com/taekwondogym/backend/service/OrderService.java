@@ -8,10 +8,8 @@ import org.springframework.web.multipart.MultipartFile;
 import com.taekwondogym.backend.model.CartItem;
 import com.taekwondogym.backend.model.Order;
 import com.taekwondogym.backend.model.OrderItem;
-import com.taekwondogym.backend.model.Product;
 import com.taekwondogym.backend.model.User;
 import com.taekwondogym.backend.repository.OrderRepository;
-import com.taekwondogym.backend.repository.ProductRepository;
 import com.taekwondogym.backend.repository.UserRepository;
 import com.taekwondogym.backend.store.ReceiptImageStore;
 
@@ -26,9 +24,6 @@ public class OrderService {
 
     @Autowired
     private OrderRepository orderRepository;
-
-    @Autowired
-    private ProductRepository productRepository;
 
     @Autowired
     private UserRepository userRepository;
@@ -46,9 +41,10 @@ public class OrderService {
         return null;  // Return null if no image was provided
     }
 
+    // Create an order and associate it with the user by email
     public void createOrder(Order order, String email) {
         User user = userRepository.findByEmail(email);
-
+        
         if (user == null) {
             throw new RuntimeException("User not found for email: " + email);
         }
@@ -56,22 +52,7 @@ public class OrderService {
         order.setUser(user); // Associate order with the user
         order.setOrderDate(LocalDateTime.now());
         orderRepository.save(order); // Save the order
-
-        // Deduct stock for each ordered item
-        for (OrderItem orderItem : order.getOrderItems()) {
-            Product product = orderItem.getProduct();
-            int orderedQuantity = orderItem.getQuantity();
-            
-            // Deduct stock
-            if (product.getStock() < orderedQuantity) {
-                throw new RuntimeException("Insufficient stock for product: " + product.getName());
-            }
-
-            product.setStock(product.getStock() - orderedQuantity);
-            productRepository.save(product); // Save updated stock
-        }
     }
-
 
     // Find an order by its ID
     public Optional<Order> findById(Long orderId) {
