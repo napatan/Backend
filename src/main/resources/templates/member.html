@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Member Information</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+
+<h1>Member Information</h1>
+
+<!-- Form to display and submit member information -->
+<form id="memberForm">
+    <label for="name">Name:</label>
+    <input type="text" id="name" required><br><br>
+
+    <label for="surname">Surname:</label>
+    <input type="text" id="surname" required><br><br>
+
+    <label for="telephone">Telephone:</label>
+    <input type="text" id="telephone" required><br><br>
+
+    <label for="thaiNationalId">Thai National ID:</label>
+    <input type="text" id="thaiNationalId" required><br><br>
+
+    <label for="weight">Weight (kg):</label>
+    <input type="number" id="weight" required><br><br>
+
+    <label for="height">Height (cm):</label>
+    <input type="number" id="height" required><br><br>
+
+    <label for="belts">Belts:</label>
+    <input type="text" id="belts" required><br><br>
+
+    <label for="gym">Gym:</label>
+    <input type="text" id="gym" required><br><br>
+
+    <label for="city">City:</label>
+    <input type="text" id="city" required><br><br>
+
+    <button type="submit">Submit</button>
+</form>
+
+<!-- Admin functionality to load and edit any member form by Thai National ID -->
+<h2>Admin: Edit User's Member Form</h2>
+<label for="thaiId">Thai National ID:</label>
+<input type="text" id="thaiId" required>
+<button id="loadMemberButton">Load Member Form</button>
+
+<!-- Admin functionality: View all members -->
+<h2>Admin: View All Members</h2>
+<button id="loadAllMembersButton">Load All Members</button>
+<table border="1" id="membersTable" style="margin-top: 20px; width: 100%; border-collapse: collapse;">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Thai National ID</th>
+        </tr>
+    </thead>
+    <tbody>
+        <!-- Member rows will be populated dynamically -->
+    </tbody>
+</table>
+
+<script>
+    const memberForm = document.getElementById('memberForm');
+    let isEditing = false; // Flag to indicate edit mode
+    let editingMemberId = null; // Store the ID of the member being edited
+
+    // Admin: Load any member form by Thai National ID
+    document.getElementById('loadMemberButton').addEventListener('click', async function () {
+        const thaiId = document.getElementById('thaiId').value;
+
+        try {
+            const response = await axios.get(`/api/members/by-thai-id/${thaiId}`);
+            const member = response.data;
+
+            if (member) {
+                // Populate the form with member information
+                document.getElementById('name').value = member.name;
+                document.getElementById('surname').value = member.surname;
+                document.getElementById('telephone').value = member.telephone;
+                document.getElementById('thaiNationalId').value = member.thaiNationalId;
+                document.getElementById('weight').value = member.weight;
+                document.getElementById('height').value = member.height;
+                document.getElementById('belts').value = member.belts;
+                document.getElementById('gym').value = member.gym;
+                document.getElementById('city').value = member.city;
+
+                // Set edit mode
+                isEditing = true;
+                editingMemberId = member.id; // Save the member's ID for updates
+                alert('Loaded member information for editing.');
+            }
+        } catch (error) {
+            console.error('Error loading member form:', error);
+            alert('Failed to load member. Please check the Thai National ID.');
+        }
+    });
+
+    // Submit the member form (handles both create and update)
+    memberForm.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        const memberDetails = {
+            name: document.getElementById('name').value,
+            surname: document.getElementById('surname').value,
+            telephone: document.getElementById('telephone').value,
+            thaiNationalId: document.getElementById('thaiNationalId').value,
+            weight: document.getElementById('weight').value,
+            height: document.getElementById('height').value,
+            belts: document.getElementById('belts').value,
+            gym: document.getElementById('gym').value,
+            city: document.getElementById('city').value
+        };
+
+        try {
+            if (isEditing && editingMemberId) {
+                // Update existing member
+                await axios.put(`/api/members/${editingMemberId}`, memberDetails);
+                alert('Member information updated successfully.');
+            } else {
+                // Create new member
+                await axios.post('/api/members/current', memberDetails);
+                alert('Member information submitted successfully.');
+            }
+
+            // Reset form and state
+            resetFormState();
+        } catch (error) {
+            console.error('Error submitting member information:', error);
+            alert('Failed to submit member information.');
+        }
+    });
+
+    // Reset form and state after submission or cancellation
+    function resetFormState() {
+        memberForm.reset();
+        isEditing = false;
+        editingMemberId = null;
+    }
+
+    // Admin: Load all members
+    document.getElementById('loadAllMembersButton').addEventListener('click', async function () {
+        try {
+            const response = await axios.get('/api/members');
+            const members = response.data;
+
+            const membersTableBody = document.querySelector('#membersTable tbody');
+            membersTableBody.innerHTML = ''; // Clear previous rows
+
+            members.forEach(member => {
+                const row = document.createElement('tr');
+                const nameCell = document.createElement('td');
+                const thaiIdCell = document.createElement('td');
+
+                nameCell.textContent = `${member.name} ${member.surname}`;
+                thaiIdCell.textContent = member.thaiNationalId;
+
+                row.appendChild(nameCell);
+                row.appendChild(thaiIdCell);
+                membersTableBody.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Error loading all members:', error);
+        }
+    });
+</script>
+
+</body>
+</html>

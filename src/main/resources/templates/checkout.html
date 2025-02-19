@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Checkout</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        .order-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .order-item img {
+            width: 50px;
+            height: auto;
+            margin-right: 10px;
+        }
+        #total-price {
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        #checkout-form {
+            margin-top: 20px;
+        }
+        #checkout-form input, #checkout-form select {
+            margin-bottom: 10px;
+            padding: 8px;
+            width: 100%;
+        }
+        #submit-button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            padding: 10px;
+            width: 100%;
+        }
+        #submit-button:hover {
+            background-color: #45a049;
+        }
+        .shipping-info {
+            display: none; /* Hide shipping fields by default */
+        }
+    </style>
+</head>
+<body>
+
+<h1>Checkout</h1>
+<div id="order-summary"></div>
+<h3 id="total-price">Total Price: $0.00</h3>
+
+<form id="checkout-form">
+    <input type="text" id="name" placeholder="Name" required>
+    <input type="text" id="surname" placeholder="Surname" required>
+    <input type="tel" id="telephone" placeholder="Telephone Number" required>
+    
+    <select id="delivery-type" required>
+        <option value="">Select Delivery Type</option>
+        <option value="pickup">Pickup</option>
+        <option value="shipping">Shipping</option>
+    </select>
+
+    <div id="shipping-fields" class="shipping-info">
+        <input type="text" id="address" placeholder="Home Address" required>
+        <input type="text" id="postcode" placeholder="Postcode">
+        <input type="text" id="city" placeholder="City">
+        <input type="text" id="district" placeholder="District">
+        <input type="text" id="subDistrict" placeholder="Sub District">
+        <input type="text" id="road" placeholder="Road">
+        <input type="text" id="soi" placeholder="Soi">
+        <input type="text" id="moo" placeholder="Moo">
+    </div>
+
+    <input type="file" id="receipt" accept="image/*" required>
+    <button type="button" id="submit-button">Submit Order</button>
+</form>
+
+<script>
+    const orderSummary = document.getElementById('order-summary');
+    const totalPriceElement = document.getElementById('total-price');
+    const deliveryTypeSelect = document.getElementById('delivery-type');
+    const shippingFields = document.getElementById('shipping-fields');
+    let totalAmount = 0;
+
+    async function getCurrentUsername() {
+        try {
+            const response = await axios.get('/api/users/current-user');
+            return response.data;
+        } catch (error) {
+            console.error('Error getting current username:', error);
+            return null;
+        }
+    }
+
+    async function loadOrderSummary() {
+        const username = await getCurrentUsername();
+        if (!username) {
+            console.error('Username not available.');
+            return;
+        }
+
+        try {
+            const response = await axios.get(`/api/cart/products`);
+            totalAmount = 0;
+
+            if (Array.isArray(response.data) && response.data.length > 0) {
+                orderSummary.innerHTML = response.data.map(item => {
+                    totalAmount += item.product.price * item.quantity;
+                    return `
+                        <div class="order-item">
+                            <img src="/uploads/images/products/${item.product.imagePaths[0]}" alt="${item.product.name}">
+                            ${item.product.name} - ${item.product.price.toFixed(2)} ฿ x ${item.quantity}
+                        </div>
+                    `;
+                }).join('');
+                totalPriceElement.innerHTML = `Total Price: ${totalAmount.toFixed(2)} ฿`;
+            } else {
+                orderSummary.innerHTML = '<p>No items in the cart.</p>';
+                totalPriceElement.innerHTML = 'Total Price: $0.00';
+            }
+        } catch (error) {
+            console.error('Error loading order summary:', error);
+        }
+    }
+
+    function handleDeliveryTypeChange() {
+        if (deliveryTypeSelect.value === 'shipping') {
+            shippingFields.style.display = 'block';
+            document.querySelectorAll('#shipping-fields input').forEach(input => {
+                input.required = true;
+            });
+        } else {
+            shippingFields.style.display = 'none';
+            document.querySelectorAll('#shipping-fields input').forEach(input => {
+                input.required = false;
+                input.value = '';
+            });
+        }
+    }
+
+    async function submitOrder() {
+        const formData = new FormData();
+        const username = await getCurrentUsername();
+        if (!username) return;
+
+        formData.append('email', username);
+        formData.append('name', document.getElementById('name').value);
+        formData.append('surname', document.getElementById('surname').value);
+        formData.append('telephone', document.getElementById('telephone').value);
+        formData.append('deliveryType', deliveryTypeSelect.value);
+        formData.append('totalAmount', totalAmount.toFixed(2));
+
+        try {
+            const cartItemsResponse = await axios.get(`/api/cart/products`);
+            const cartItems = cartItemsResponse.data;
+
+            const stockCheckPromises = cartItems.map(item => 
+                axios.get(`/api/products/${item.product.id}/check-stock`, { params: { quantity: item.quantity } })
+            );
+
+            const stockResults = await Promise.all(stockCheckPromises);
+            const insufficientStockItems = stockResults.filter(result => !result.data.available).map(result => result.data.productName);
+
+            if (insufficientStockItems.length > 0) {
+                alert(`Insufficient stock for the following items: ${insufficientStockItems.join(', ')}`);
+                return;
+            }
+
+            const receiptFile = document.getElementById('receipt').files[0];
+            if (receiptFile) {
+                formData.append('receiptImage', receiptFile);
+            }
+
+            const response = await axios.post('/api/orders', formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+
+            if (response.status === 200) {
+                alert('Order submitted successfully!');
+                orderSummary.innerHTML = '';
+                totalPriceElement.innerHTML = 'Total Price: $0.00';
+                document.getElementById('checkout-form').reset();
+            }
+        } catch (error) {
+            console.error('Error submitting order:', error);
+            alert('Failed to submit order.');
+        }
+    }
+
+    document.getElementById('submit-button').onclick = submitOrder;
+    deliveryTypeSelect.onchange = handleDeliveryTypeChange;
+
+    window.onload = loadOrderSummary;
+</script>
+
+</body>
+</html>

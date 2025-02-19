@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Management</title>
+    <style>
+        #product-list img, #image-previews img {
+            width: 100px;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>Product Management</h1>
+
+    <form id="productForm" enctype="multipart/form-data">
+        <label for="name">Name:</label>
+        <input type="text" id="name" required><br><br>
+
+        <label for="description">Description:</label>
+        <textarea id="description" required></textarea><br><br>
+
+        <label for="price">Price:</label>
+        <input type="number" id="price" required><br><br>
+
+        <label for="stock">Stock:</label>
+        <input type="number" id="stock" required min="0"><br><br> <!-- New Stock Field -->
+
+        <label for="images">Images:</label>
+        <input type="file" id="images" multiple accept="image/*" onchange="previewImages()"><br><br>
+
+        <div id="image-previews"></div> <!-- Container for image previews -->
+
+        <button type="submit">Submit</button>
+        <button type="button" id="cancel-edit" style="display: none;">Cancel</button>
+    </form>
+
+    <h2>Existing Products</h2>
+    <div id="product-list"></div>
+
+    <script>
+        let editingProductId = null;
+
+        // Load existing products
+        function loadProducts() {
+            fetch('/api/products')
+                .then(response => response.json())
+                .then(products => {
+                    const productList = document.getElementById('product-list');
+                    productList.innerHTML = ''; // Clear previous products
+
+                    products.forEach(product => {
+                        const div = document.createElement('div');
+                        div.innerHTML = `
+                            <h3>${product.name}</h3>
+                            <p>${product.description}</p>
+                            <p>Price: ${product.price} ฿</p>
+                            <p>Stock: ${product.stock}</p> <!-- Display Stock -->
+                            <p>Availability: <span>${product.available ? 'Available' : 'Unavailable'}</span></p>
+                            <button onclick="toggleAvailability(${product.id})">${product.available ? 'Set Unavailable' : 'Set Available'}</button>
+                            <div>
+                                ${product.imagePaths.map(path => `<img src="/uploads/images/products/${path}" alt="${product.name}">`).join('')}
+                            </div>
+                            <button onclick="editProduct(${product.id})">Edit</button>
+                            <button onclick="deleteProduct(${product.id})">Delete</button>
+                        `;
+                        productList.appendChild(div);
+                    });
+                })
+                .catch(error => console.error('Error loading products:', error));
+        }
+
+        // Edit a product
+        function editProduct(id) {
+            fetch(`/api/products/${id}`)
+                .then(response => response.json())
+                .then(product => {
+                    document.getElementById('name').value = product.name;
+                    document.getElementById('description').value = product.description;
+                    document.getElementById('price').value = product.price;
+                    document.getElementById('stock').value = product.stock; // Populate Stock Field
+
+                    // Clear the file input and previous image previews
+                    document.getElementById('images').value = '';
+                    document.getElementById('image-previews').innerHTML = '';
+
+                    // Display existing images
+                    product.imagePaths.forEach(imagePath => {
+                        const img = document.createElement('img');
+                        img.src = `/uploads/images/products/${imagePath}`;
+                        img.alt = product.name;
+                        document.getElementById('image-previews').appendChild(img);
+                    });
+
+                    // Show the cancel button and set editing ID
+                    document.getElementById('cancel-edit').style.display = 'block';
+                    editingProductId = id; // Set the editing ID
+                })
+                .catch(error => console.error('Error fetching product:', error));
+        }
+
+        // Handle form submission to add or update a product
+        document.getElementById('productForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const formData = new FormData();
+            const product = {
+                name: document.getElementById('name').value,
+                description: document.getElementById('description').value,
+                price: document.getElementById('price').value,
+                stock: document.getElementById('stock').value, // Include Stock
+            };
+
+            formData.append('product', new Blob([JSON.stringify(product)], { type: 'application/json' }));
+
+            const imageFiles = document.getElementById('images').files;
+            for (let i = 0; i < imageFiles.length; i++) {
+                formData.append('images', imageFiles[i]); // Append each selected image
+            }
+
+            if (editingProductId) {
+                // Update existing product
+                fetch(`/api/products/${editingProductId}`, {
+                    method: 'PUT',
+                    body: formData
+                }).then(response => {
+                    if (response.ok) {
+                        alert('Product updated successfully');
+                        resetForm();
+                    } else {
+                        alert('Failed to update product');
+                    }
+                    loadProducts();
+                }).catch(error => console.error('Error updating product:', error));
+            } else {
+                // Add new product
+                fetch('/api/products', {
+                    method: 'POST',
+                    body: formData
+                }).then(response => {
+                    if (response.ok) {
+                        alert('Product added successfully');
+                        resetForm();
+                    } else {
+                        alert('Failed to add product');
+                    }
+                    loadProducts();
+                }).catch(error => console.error('Error adding product:', error));
+            }
+        });
+
+        // Reset form after submission
+        function resetForm() {
+            document.getElementById('productForm').reset();
+            document.getElementById('image-previews').innerHTML = '';
+            editingProductId = null; // Reset editing ID
+            document.getElementById('cancel-edit').style.display = 'none'; // Hide cancel button
+        }
+
+        // Load products on page load
+        window.onload = loadProducts;
+    </script>
+
+</body>
+
+</html>

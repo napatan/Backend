@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Trainer</title>
+</head>
+<body>
+    <h2>Manage Trainer</h2>
+    <form id="trainerForm" method="POST" enctype="multipart/form-data">
+        <label for="name">Trainer Name:</label>
+        <input type="text" id="name" name="name" placeholder="Trainer Name" required />
+
+        <label for="experience">Experience:</label>
+        <input type="text" id="experience" name="experience" placeholder="Experience" required />
+
+        <label for="awards">Awards:</label>
+        <input type="text" id="awards" name="awards" placeholder="Awards (comma separated)" />
+
+        <label for="image">Upload Image:</label>
+        <input type="file" id="image" name="image" accept="image/*" />
+
+        <button type="submit">Submit</button>
+    </form>
+
+    <script>
+        document.getElementById('trainerForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+
+            const formData = new FormData();
+            formData.append('name', document.getElementById('name').value);
+            formData.append('experience', document.getElementById('experience').value);
+            formData.append('awards', document.getElementById('awards').value);
+            formData.append('image', document.getElementById('image').files[0]);
+
+            const trainerId = new URLSearchParams(window.location.search).get('id');  
+            const url = trainerId ? `/api/trainers/${trainerId}` : '/api/trainers/add';
+            const method = trainerId ? 'PUT' : 'POST';
+
+            fetch(url, {
+                method: method,
+                body: formData
+            })
+            .then(response => response.text())  // Change to text() instead of json()
+			.then(message => {
+			    alert(message);
+			    window.location.href = "/trainer";
+			})
+            .catch(error => {
+                console.error('Error submitting trainer:', error);
+                alert('Failed to submit trainer.');
+            });
+        });
+    </script>
+</body>
+</html>

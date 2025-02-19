@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Taekwondo Gym Achievements</title>
+    <link rel="stylesheet" href="css/styles.css"> <!-- Link to your CSS file -->
+</head>
+<body>
+    <header>
+        <h1>Welcome to the Taekwondo Gym</h1>
+        <nav>
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/member">Member</a></li>
+                <li><a href="/trainer">Trainer</a></li>
+                <li><a href="/train">Trainer Management</a></li>
+                <li><a href="/classes">Classes</a></li>
+                <li><a href="/achievements">Achievements</a></li>
+                <li><a href="/shop">Shop</a></li>
+                <li><a href="/prod">Product Management</a></li>
+                <li><a href="/cart">View Cart</a></li>
+                <li><a href="/order">Order</a></li>
+                <li><a href="/login">Login</a></li>
+                <li><a href="/register">Register</a></li>
+                <li><a href="/logout">Logout</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        <h2>Gym Achievements</h2>
+        <div id="achievement-list">
+            <!-- Achievements will be dynamically loaded here -->
+        </div>
+    </main>
+
+    <footer>
+        <p>&copy; 2024 Taekwondo Gym. All rights reserved.</p>
+    </footer>
+
+    <script>
+        // Fetch achievements from the backend API and display them
+        async function loadAchievements() {
+            try {
+                const response = await fetch('/api/achievements');
+                const achievements = await response.json();
+                const achievementList = document.getElementById('achievement-list');
+
+                achievements.forEach(achievement => {
+                    const achievementCard = document.createElement('div');
+                    achievementCard.className = 'achievement-card';
+                    achievementCard.innerHTML = `
+                        <h3>${achievement.title}</h3>
+                        ${achievement.imagePaths.map(imagePath => `
+                            <img src="/uploads/images/achievements/${imagePath}" alt="${achievement.title}" />
+                        `).join('')}
+                        <p>${achievement.description}</p>
+                    `;
+                    achievementList.appendChild(achievementCard);
+                });
+            } catch (error) {
+                console.error('Error fetching achievements:', error);
+            }
+        }
+
+        // Load achievements when the page loads
+        window.onload = loadAchievements;
+    </script>
+</body>
+</html>

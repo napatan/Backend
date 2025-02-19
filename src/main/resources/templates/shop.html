@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Product Shop</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        .product-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        .product-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            width: 250px;
+        }
+        .product-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+        .cart-button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px;
+            border: none;
+            cursor: pointer;
+        }
+        .cart-button:hover {
+            background-color: #45a049;
+        }
+        .cart-item {
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Product Shop</h1>
+
+    <div id="product-list" class="product-list"></div>
+
+    <script>
+        const productList = document.getElementById('product-list');
+        let username = null;
+
+        async function getCurrentUsername() {
+            try {
+                const response = await axios.get('/api/users/current-user');
+                username = response.data;
+            } catch (error) {
+                console.error('Error getting current username:', error);
+            }
+        }
+
+        async function loadProducts() {
+            try {
+                const response = await axios.get('/api/products');
+                productList.innerHTML = response.data.filter(product => product.available).map(product => `
+                    <div class="product-item">
+                        ${product.imagePaths.map(path => `<img src="/uploads/images/products/${path}" alt="${product.name}" class="product-image">`).join('')}
+                        <h3>${product.name}</h3>
+                        <p>Price: ${product.price.toFixed(2)} ฿</p>
+                        <p>${product.description}</p>
+                        <p>Stock: <span id="stock-${product.id}">${product.stock}</span></p>
+                        <input type="number" id="quantity-${product.id}" value="1" min="1" max="${product.stock}" style="width: 50px;" ${product.stock === 0 ? 'disabled' : ''}>
+                        <button class="cart-button" onclick="addToCart(${product.id})" ${product.stock === 0 ? 'disabled' : ''}>Add to Cart</button>
+                    </div>
+                `).join('');
+            } catch (error) {
+                console.error('Error loading products:', error);
+            }
+        }
+
+        async function addToCart(productId) {
+            if (!username) {
+                console.error('Username not available.');
+                return;
+            }
+
+            const quantityInput = document.getElementById(`quantity-${productId}`);
+            const quantity = parseInt(quantityInput ? quantityInput.value : 1, 10);
+
+            const stockElement = document.getElementById(`stock-${productId}`);
+            const currentStock = parseInt(stockElement ? stockElement.textContent : 0, 10);
+
+            if (quantity > currentStock) {
+                alert('Cannot add more than available stock.');
+                return;
+            }
+
+            try {
+                const response = await axios.post(`/api/cart/products/${productId}?quantity=${quantity}`);
+                
+                // Log the entire response to see what's coming back
+                console.log('Response:', response);
+
+                // Check if the response has items in the cart
+                if (response.data && response.data.items && response.data.items.length > 0) {
+                    const newStock = currentStock - quantity;
+                    stockElement.textContent = newStock;
+                    if (newStock === 0) {
+                        quantityInput.disabled = true;
+                        document.querySelector(`button[onclick="addToCart(${productId})"]`).disabled = true;
+                    }
+                    alert('Product added to cart!');
+                } else {
+                    alert('Failed to add product to cart. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error adding product to cart:', error);
+                alert('Failed to add product to cart. Please try again.');
+            }
+        }
+
+
+        window.onload = async function() {
+            await getCurrentUsername();
+            loadProducts();
+        };
+    </script>
+</body>
+</html>

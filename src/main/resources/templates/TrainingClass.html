@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Training Class Management</title>
+</head>
+<body>
+    <h1>Training Class Management</h1>
+
+    <form id="trainingClassForm">
+        <label>Name:</label>
+        <input type="text" id="name" required><br><br>
+        
+        <label>Description:</label>
+        <textarea id="description" required></textarea><br><br>
+        
+        <label>Price:</label>
+        <input type="number" id="price" required><br><br>
+
+        <label>Schedule:</label>
+        <input type="text" id="schedule" required><br><br>
+        
+        <button type="submit">Submit</button>
+        <button type="button" id="cancel-edit" style="display: none;">Cancel</button>
+    </form>
+
+    <h2>Existing Training Classes</h2>
+    <div id="training-class-list"></div>
+
+    <script>
+    let editingClassId = null;
+
+    // Load existing training classes
+    function loadTrainingClasses() {
+        fetch('/api/classes')
+            .then(response => response.json())
+            .then(trainingClasses => {
+                const trainingClassList = document.getElementById('training-class-list');
+                trainingClassList.innerHTML = ''; // Clear previous training classes
+
+                trainingClasses.forEach(trainingClass => {
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                        <h3>${trainingClass.name}</h3>
+                        <p>${trainingClass.description}</p>
+                        <p>Price: ${trainingClass.price} ฿</p>
+                        <p>Schedule: ${trainingClass.schedule}</p>
+                        <button onclick="editTrainingClass(${trainingClass.id})">Edit</button>
+                        <button onclick="deleteTrainingClass(${trainingClass.id})">Delete</button>
+                    `;
+                    trainingClassList.appendChild(div);
+                });
+            })
+            .catch(error => console.error('Error loading training classes:', error));
+    }
+
+    // Edit a training class
+    function editTrainingClass(id) {
+        fetch(`/api/classes/${id}`)
+            .then(response => response.json())
+            .then(trainingClass => {
+                document.getElementById('name').value = trainingClass.name;
+                document.getElementById('description').value = trainingClass.description;
+                document.getElementById('price').value = trainingClass.price;
+                document.getElementById('schedule').value = trainingClass.schedule;
+
+                // Show the cancel button and set editing ID
+                document.getElementById('cancel-edit').style.display = 'block';
+                editingClassId = id; // Set the editing ID
+            })
+            .catch(error => console.error('Error fetching training class:', error));
+    }
+
+    // Handle form submission to add or update a training class
+    document.getElementById('trainingClassForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+
+        const trainingClass = {
+            name: document.getElementById('name').value,
+            description: document.getElementById('description').value,
+            price: document.getElementById('price').value,
+            schedule: document.getElementById('schedule').value
+        };
+
+        if (editingClassId) {
+            // Update existing training class
+            fetch(`/api/classes/${editingClassId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(trainingClass)
+            }).then(response => {
+                if (response.ok) {
+                    alert('Training Class updated successfully');
+                    resetForm();
+                } else {
+                    alert('Failed to update training class');
+                }
+                loadTrainingClasses();
+            }).catch(error => console.error('Error updating training class:', error));
+        } else {
+            // Add new training class
+            fetch('/api/classes/create', {  // Updated to the correct path
+                method: 'POST',
+                headers: {    
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(trainingClass)
+            }).then(response => {
+                if (response.ok) {
+                    alert('Training Class added successfully');
+                    resetForm();
+                } else {
+                    alert('Failed to add training class');
+                }
+                loadTrainingClasses();
+            }).catch(error => console.error('Error adding training class:', error));
+        }
+    });
+
+    // Delete a training class
+    function deleteTrainingClass(id) {
+        fetch(`/api/classes/${id}`, {
+            method: 'DELETE'
+        }).then(response => {
+            if (response.ok) {
+                alert('Training Class deleted successfully');
+                loadTrainingClasses();
+            } else {
+                alert('Failed to delete training class');
+            }
+        }).catch(error => console.error('Error deleting training class:', error));
+    }
+
+    // Reset form after submission
+    function resetForm() {
+        document.getElementById('trainingClassForm').reset();
+        editingClassId = null; // Reset editing ID
+        document.getElementById('cancel-edit').style.display = 'none'; // Hide cancel button
+    }
+
+    // Cancel edit
+    document.getElementById('cancel-edit').addEventListener('click', function() {
+        resetForm();
+    });
+
+    // Load training classes on page load
+    window.onload = loadTrainingClasses;
+</script>
+	
+
+</body>
+</html>

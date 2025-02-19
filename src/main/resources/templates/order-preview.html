@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order Preview</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 800px;
+            margin: 20px auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .order-details {
+            margin-top: 20px;
+        }
+
+        .order-details p {
+            margin: 5px 0;
+        }
+
+        .order-items {
+            margin-top: 20px;
+        }
+
+        .order-item {
+            padding: 10px;
+            border-bottom: 1px solid #ccc;
+        }
+
+        .receipt {
+            margin-top: 20px;
+        }
+
+        .receipt img {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Order Preview</h1>
+        <div id="orderDetails"></div>
+        <div class="order-items" id="orderItems"></div>
+        <div class="receipt" id="receipt"></div>
+    </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            const orderId = window.location.pathname.split("/").pop();
+
+            fetch(`/api/orders/${orderId}`)
+                .then(response => response.json())
+                .then(order => {
+                    const orderDetails = document.getElementById('orderDetails');
+                    const orderItems = document.getElementById('orderItems');
+                    const receipt = document.getElementById('receipt');
+                    
+
+                    orderDetails.innerHTML = `
+                        <h2>Order Information</h2>
+                        <p><strong>Order ID:</strong> ${order.id}</p>
+                        <p><strong>Name:</strong> ${order.name} ${order.surname}</p>
+                        <p><strong>Telephone:</strong> ${order.telephone}</p>
+                        <p><strong>Delivery Type:</strong> ${order.deliveryType}</p>
+                        <p><strong>Total Amount:</strong> ${order.totalAmount.toFixed(2)} ฿</p>
+                        <p><strong>Order Date & Time:</strong> ${formatDate(order.orderDate).toLocaleString()}</p>
+                    `;
+
+                    if (order.deliveryType.toLowerCase() === "shipping") {
+                        orderDetails.innerHTML += `
+                            <h3>Shipping Address</h3>
+                            <p><strong>Address:</strong> ${order.homeAddress}, ${order.moo}, ${order.soi}, ${order.road}</p>
+                            <p><strong>City:</strong> ${order.city}</p>
+                            <p><strong>District:</strong> ${order.district}</p>
+                            <p><strong>Sub-district:</strong> ${order.subDistrict}</p>
+                            <p><strong>Postcode:</strong> ${order.postcode}</p>
+                        `;
+                    }
+
+                    orderItems.innerHTML = `<h3>Order Items</h3>`;
+                    order.orderItems.forEach(item => {
+                        orderItems.innerHTML += `
+                            <div class="order-item">
+                                <p><strong>Product:</strong> ${item.product.name}</p>
+                                <p><strong>Quantity:</strong> ${item.quantity}</p>
+                                <p><strong>Price:</strong> ${item.price.toFixed(2)} ฿</p>
+                            </div>
+                        `;
+                    });
+
+                    // Update receipt image source path
+                    if (order.receiptFilePath) {
+                        receipt.innerHTML = `
+                            <h3>Receipt</h3>
+                            <img src="/uploads/images/orders/${order.receiptFilePath}" alt="Receipt Image">
+                        `;
+                    }
+                })
+                .catch(error => {
+                    console.error("Error fetching order details:", error);
+                });
+        });
+        function formatDate(dateStr) {
+            try {
+                const date = new Date(dateStr);
+                if (isNaN(date)) return "Invalid Date";
+                
+                const dateOptions = { 
+                    day: '2-digit', 
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: false
+                };
+                
+                return date.toLocaleString('en-GB', dateOptions);
+            } catch (e) {
+                return "Invalid Date";
+            }
+        }
+    </script>
+</body>
+</html>

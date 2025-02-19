@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        .cart-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .cart-item img {
+            width: 50px;
+            height: auto;
+            margin-right: 10px;
+        }
+        .cart-item input {
+            width: 40px;
+            margin-left: 10px;
+        }
+        .cart-item button {
+            margin-left: 10px;
+            background-color: #ff4d4d;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        .cart-item button:hover {
+            background-color: #ff3333;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Shopping Cart</h1>
+<div id="cart-items"></div>
+<h3 id="total-price">Total Price: $0.00</h3>
+<button id="checkout-button">Checkout</button>
+
+<script>
+    const cartItems = document.getElementById('cart-items');
+    const totalPriceElement = document.getElementById('total-price');
+    let username = null;
+
+    async function getCurrentUsername() {
+        try {
+            const response = await axios.get('/api/users/current-user');
+            username = response.data;
+        } catch (error) {
+            console.error('Error getting current username:', error);
+        }
+    }
+
+    async function loadCartItems() {
+        if (!username) {
+            console.error('Username not available.');
+            return;
+        }
+        try {
+            const response = await axios.get(`/api/cart/products`);
+            let totalPrice = 0;
+
+            if (Array.isArray(response.data)) {
+                cartItems.innerHTML = response.data.map(item => {
+                    totalPrice += item.product.price * item.quantity;
+                    return `
+                        <div class="cart-item">
+                            <img src="/uploads/images/products/${item.product.imagePaths[0]}" alt="${item.product.name}">
+                            ${item.product.name} - ${item.product.price.toFixed(2)} ฿
+                            <label for="quantity-${item.product.id}">Quantity:</label>
+                            <input type="number" id="quantity-${item.product.id}" value="${item.quantity}" min="1" onchange="updateQuantity(${item.product.id}, this.value)">
+                            <button onclick="removeFromCart(${item.product.id})">Remove</button>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            totalPriceElement.innerHTML = `Total Price: ${totalPrice.toFixed(2)} ฿`;
+        } catch (error) {
+            console.error('Error loading cart items:', error);
+        }
+    }
+
+    async function updateQuantity(productId, newQuantity) {
+        try {
+            const stockResponse = await axios.get(`/api/products/${productId}/check-stock`, { params: { quantity: newQuantity } });
+            if (!stockResponse.data.available) {
+                alert("Not enough stock available for this quantity.");
+                return;
+            }
+
+            const response = await axios.put(`/api/cart/products/${productId}`, { quantity: newQuantity });
+            if (response.data.success) {
+                loadCartItems();
+            }
+        } catch (error) {
+            console.error('Error updating product quantity:', error);
+        }
+    }
+
+    async function removeFromCart(productId) {
+        try {
+            await axios.delete(`/api/cart/products/${productId}`);
+            loadCartItems();
+        } catch (error) {
+            console.error('Error removing product from cart:', error);
+        }
+    }
+
+    document.getElementById('checkout-button').onclick = async function() {
+        let totalPrice = 0;
+        let cartItemsData = [];
+        let stockAvailable = true;  // Flag to track stock availability
+
+        try {
+            // Fetch current cart items
+            const response = await axios.get(`/api/cart/products`);
+
+            if (Array.isArray(response.data)) {
+                cartItemsData = response.data;
+                // Check stock for each item in the cart
+                for (const item of cartItemsData) {
+                    const stockResponse = await axios.get(`/api/products/${item.product.id}/check-stock`, { 
+                        params: { quantity: item.quantity } 
+                    });
+                    if (!stockResponse.data.available) {
+                        stockAvailable = false;
+                        alert(`Not enough stock available for ${item.product.name}.`);
+                        break;  // Stop further checks if stock is unavailable
+                    }
+                    totalPrice += item.product.price * item.quantity;  // Calculate total price if stock is available
+                }
+            }
+
+            // If all stock is available, proceed to checkout
+            if (stockAvailable) {
+                localStorage.setItem('totalPrice', totalPrice.toFixed(2));
+                localStorage.setItem('cartItems', JSON.stringify(cartItemsData));
+                window.location.href = '/checkout';
+            }
+
+        } catch (error) {
+            console.error('Error fetching cart items:', error);
+        }
+    };
+
+    window.onload = async function() {
+        await getCurrentUsername();
+        loadCartItems();
+    };
+</script>
+
+</body>
+</html>

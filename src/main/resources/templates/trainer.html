@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>View Trainers</title>
+</head>
+<body>
+    <h2>Trainers List</h2>
+    <div id="trainers-list"></div>
+
+    <script>
+        function loadTrainers() {
+            fetch('/api/trainers')
+                .then(response => response.json())
+                .then(trainers => {
+                    const trainersList = document.getElementById('trainers-list');
+                    trainersList.innerHTML = trainers.map(trainer => `
+                        <div class="trainer-card">
+                            <h3>${trainer.name}</h3>
+                            <p>Experience: ${trainer.experience}</p>
+                            <p>Awards: ${trainer.awards ? trainer.awards.join(", ") : "No awards"}</p>
+                            ${trainer.image ? `<img src="/uploads/images/trainers/${trainer.image}" alt="${trainer.name}" width="200">` : ""}
+                            <div>
+                                <a href="/train.html?id=${trainer.id}">Edit</a>
+                                <button onclick="deleteTrainer(${trainer.id})">Delete</button>
+                            </div>
+                        </div>
+                    `).join('');
+                })
+                .catch(error => console.error('Error:', error));
+        }
+
+        function deleteTrainer(id) {
+            if (confirm('Are you sure you want to delete this trainer?')) {
+                fetch(`/api/trainers/${id}`, { method: 'DELETE' })
+                    .then(response => response.text())
+                    .then(() => loadTrainers())
+                    .catch(error => console.error('Error:', error));
+            }
+        }
+
+        loadTrainers();
+    </script>
+</body>
+</html>
